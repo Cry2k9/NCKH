@@ -240,7 +240,8 @@ elif menu == "6. Chẩn đoán Sốt xuất huyết":
     for i, col_name in enumerate(X_raw.columns):
         col_idx = i % 3
         with cols[col_idx]:
-            if np.issubdtype(X_raw[col_name].dtype, np.number):
+            # Thay np.issubdtype bằng pd.api.types.is_numeric_dtype để tương thích mọi phiên bản Pandas
+            if pd.api.types.is_numeric_dtype(X_raw[col_name]):
                 min_val = float(X_raw[col_name].min())
                 max_val = float(X_raw[col_name].max())
                 mean_val = float(X_raw[col_name].mean())
