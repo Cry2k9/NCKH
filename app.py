@@ -31,7 +31,7 @@ def load_data():
 @st.cache_resource
 def train_models(X_train, y_train):
     models = {
-        "Logistic Regression": LogisticRegression(max_iter=1000, random_state=42),
+        "Logistic Regression": LogisticRegression(max_iter=2000, random_state=42),
         "Random Forest": RandomForestClassifier(n_estimators=100, random_state=42),
         "XGBoost": XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)
     }
@@ -48,30 +48,39 @@ except Exception as e:
     st.error(f"Không thể đọc file dataset 'Dengue_dataset_FINAL_clean.csv'. Vui lòng kiểm tra lại đường dẫn file. Lỗi: {e}")
     st.stop()
 
-# Tiền xử lý dữ liệu cơ bản cho mô hình
+# ---------------------------------------------------------
+# Tiền xử lý dữ liệu cơ bản (An toàn tuyệt đối)
+# ---------------------------------------------------------
 df_model = df.copy()
 
-# 1. Làm sạch & Chuẩn hóa cột nhãn 'Result'
 if 'Result' in df_model.columns:
-    # Nếu cột Result chứa chữ (string/object)
-    if df_model['Result'].dtype == object:
-        # Xóa khoảng trắng thừa và chuyển toàn bộ về chữ thường
-        df_model['Result'] = df_model['Result'].astype(str).str.strip().str.lower()
-        # Ánh xạ giá trị về dạng số 0 và 1
-        df_model['Result'] = df_model['Result'].map({'positive': 1, 'negative': 0, '1': 1, '0': 0})
+    # 1. Chuyển cột Result về dạng chuỗi viết thường & xóa khoảng trắng thừa
+    s_result = df_model['Result'].astype(str).str.strip().str.lower()
     
-    # Loại bỏ dòng bị thiếu nhãn (nếu có) và ép kiểu dữ liệu về số nguyên (int)
+    # 2. Ánh xạ toàn bộ các dạng biểu diễn của Positive / Negative về 1 và 0
+    map_dict = {
+        'positive': 1, 'pos': 1, '1': 1, '1.0': 1,
+        'negative': 0, 'neg': 0, '0': 0, '0.0': 0
+    }
+    mapped = s_result.map(map_dict)
+    
+    # 3. Với các giá trị đã ở sẵn dạng số, dùng to_numeric ép kiểu an toàn
+    df_model['Result'] = mapped.fillna(pd.to_numeric(df_model['Result'], errors='coerce'))
+    
+    # 4. Loại bỏ các dòng bị mâu thuẫn/thiếu nhãn Result
     df_model = df_model.dropna(subset=['Result'])
+    
+    # 5. Ép kiểu chuẩn int cho XGBoost và sklearn
     df_model['Result'] = df_model['Result'].astype(int)
 
-# 2. Tách features và target
+# Tách features và target
 X_raw = df_model.drop(columns=['Result'])
 y = df_model['Result']
 
-# 3. Mã hóa các cột dữ liệu phân loại (categorical)
+# Mã hóa các cột dữ liệu phân loại (categorical)
 X = pd.get_dummies(X_raw, drop_first=True)
 
-# 4. Chia dữ liệu train/test
+# Chia dữ liệu train/test
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
 # Huấn luyện các mô hình
@@ -227,7 +236,7 @@ elif menu == "6. Chẩn đoán Sốt xuất huyết":
     user_input_raw = {}
     cols = st.columns(3)
     
-    # Tạo giao diện nhập liệu từ dữ liệu gốc (chưa get_dummies)
+    # Tạo giao diện nhập liệu từ dữ liệu gốc
     for i, col_name in enumerate(X_raw.columns):
         col_idx = i % 3
         with cols[col_idx]:
@@ -249,11 +258,11 @@ elif menu == "6. Chẩn đoán Sốt xuất huyết":
                     options=unique_vals
                 )
 
-    # Chuyển đổi dữ liệu nhập vào thành dạng đúng định dạng huấn luyện của mô hình
+    # Xử lý chuẩn hóa input_df sao cho khớp chuẩn các cột của X_train
     input_df_raw = pd.DataFrame([user_input_raw])
-    input_df_encoded = pd.get_dummies(input_df_raw, drop_first=True)
+    input_df_encoded = pd.get_dummies(input_df_raw)
     
-    # Đảm bảo input_df có đủ tất cả các cột như X_train (thiếu thì gán 0)
+    # Đồng bộ số cột đúng như tập huấn luyện X
     input_df = input_df_encoded.reindex(columns=X.columns, fill_value=0)
 
     if st.button("🔍 Tiến hành Chẩn đoán"):
