@@ -51,18 +51,27 @@ except Exception as e:
 # Tiền xử lý dữ liệu cơ bản cho mô hình
 df_model = df.copy()
 
-# Xử lý biến mục tiêu 'Result' (positive: 1, negative: 0)
-if 'Result' in df_model.columns and df_model['Result'].dtype == object:
-    df_model['Result'] = df_model['Result'].map({'positive': 1, 'negative': 0, 'Positive': 1, 'Negative': 0})
+# 1. Làm sạch & Chuẩn hóa cột nhãn 'Result'
+if 'Result' in df_model.columns:
+    # Nếu cột Result chứa chữ (string/object)
+    if df_model['Result'].dtype == object:
+        # Xóa khoảng trắng thừa và chuyển toàn bộ về chữ thường
+        df_model['Result'] = df_model['Result'].astype(str).str.strip().str.lower()
+        # Ánh xạ giá trị về dạng số 0 và 1
+        df_model['Result'] = df_model['Result'].map({'positive': 1, 'negative': 0, '1': 1, '0': 0})
+    
+    # Loại bỏ dòng bị thiếu nhãn (nếu có) và ép kiểu dữ liệu về số nguyên (int)
+    df_model = df_model.dropna(subset=['Result'])
+    df_model['Result'] = df_model['Result'].astype(int)
 
-# Tách features và target
+# 2. Tách features và target
 X_raw = df_model.drop(columns=['Result'])
 y = df_model['Result']
 
-# Mã hóa các cột dữ liệu phân loại (categorical)
+# 3. Mã hóa các cột dữ liệu phân loại (categorical)
 X = pd.get_dummies(X_raw, drop_first=True)
 
-# Chia dữ liệu train/test
+# 4. Chia dữ liệu train/test
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
 # Huấn luyện các mô hình
