@@ -51,15 +51,23 @@ except Exception as e:
 # Tiền xử lý dữ liệu cơ bản cho mô hình
 df_model = df.copy()
 
-# Xử lý biến mục tiêu 'Result' (positive: 1, negative: 0)
-if 'Result' in df_model.columns and df_model['Result'].dtype == object:
-    df_model['Result'] = df_model['Result'].map({'positive': 1, 'negative': 0, 'Positive': 1, 'Negative': 0})
+# 1. Chuyển đổi biến mục tiêu 'Result' thành dạng chữ thường & xóa khoảng trắng thừa
+if 'Result' in df_model.columns:
+    if df_model['Result'].dtype == object:
+        df_model['Result'] = df_model['Result'].astype(str).str.strip().str.lower()
+        df_model['Result'] = df_model['Result'].map({'positive': 1, 'negative': 0})
+    
+    # Bỏ các dòng có nhãn bị rỗng (NaN) nếu có
+    df_model = df_model.dropna(subset=['Result'])
+    
+    # Ép kiểu nhãn bắt buộc về int (0 và 1) cho XGBoost
+    df_model['Result'] = df_model['Result'].astype(int)
 
-# Tách features và target
+# 2. Tách features và target
 X_raw = df_model.drop(columns=['Result'])
 y = df_model['Result']
 
-# Mã hóa các cột dữ liệu phân loại (categorical)
+# 3. Mã hóa các cột phân loại (categorical)
 X = pd.get_dummies(X_raw, drop_first=True)
 
 # Chia dữ liệu train/test
